@@ -415,8 +415,10 @@ export default definePluginApp((app) => {
   app.slots.sidebarFooterAction({
     id: ACTION_ID,
     title: "Theme: click for light or dark, hold to choose",
-    // Only reached if the artwork fails to load: bb prefers branding.icon.
-    icon: "Palette",
+    // A name bb cannot resolve, so the button falls back to branding.icon — the
+    // span the content script repaints. Since bb 0.46 a built-in name such as
+    // "Palette" wins over branding, and an empty one drops the button.
+    icon: "theme-toggle/artwork",
     run: () => {
       // A click is a plain day/night flip, so it leaves "system" behind and
       // starts from whatever that was showing. The whole app changing colour
