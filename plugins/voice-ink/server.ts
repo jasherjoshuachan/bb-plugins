@@ -1,9 +1,9 @@
 // voice-ink — local speech recognition for bb's chat composer.
 //
-// bb routes voice transcription to whichever plugin registers an AI service of
-// kind "voice" and is named by BB_TRANSCRIPTION. This plugin registers one and
-// answers it from a Whisper model running on the machine bb runs on: no
-// account, no API key, no audio leaving the box.
+// bb sends voice input to the AI service picked for it in Settings → AI
+// services (or `bb settings ai-services set voice voice-ink`). This plugin
+// registers one and answers it from a Whisper model running on the machine bb
+// runs on: no account, no API key, no audio leaving the box.
 //
 // The heavy lifting happens in the `bb.host` entry (src/host.ts), which keeps a
 // Python worker with the model resident in memory. This file owns settings, the
@@ -23,8 +23,11 @@ import {
 export { rpcContract };
 export type { EngineStatus, TranscriptionResult };
 
-/** Must match VOICE_INK_SERVICE_ID in src/host.ts: it is the BB_TRANSCRIPTION prefix. */
+/** The AI service id: what `bb settings ai-services set voice` takes. */
 const SERVICE_ID = "voice-ink";
+
+/** How long bb waits for one transcription before it gives up on it. */
+const VOICE_WAIT_MS = 10_000;
 
 /** Cleanup backends the settings offer; the value is validated on the way out. */
 const CLEANUP_PROVIDERS = ["off", "groq", "anthropic", "openai-compatible"] as const;
@@ -233,7 +236,35 @@ export default async function plugin(bb: BbPluginApi) {
   bb.experimental_aiServices.register({
     id: SERVICE_ID,
     displayName: "Voice Ink (local Whisper)",
-    kinds: ["voice"],
+    // bb's own microphone button. The host answers with whatever is recognized
+    // before bb stops waiting and keeps the whole text in history.
+    transcribe: async (audio, { hint }) => {
+      const started = Date.now();
+      const id = await hostId();
+      const audioBase64 = Buffer.from(await audio.arrayBuffer()).toString("base64");
+      const result = await host.call(
+        "voice.transcribeRecording",
+        {
+          audioBase64,
+          mimeType: audio.type === "" ? "application/octet-stream" : audio.type,
+          prompt: hint,
+          timeoutMs: Math.max(1_000, VOICE_WAIT_MS - (Date.now() - started)),
+        },
+        { hostId: id },
+      );
+      if (!result.ok) throw new Error(result.message);
+      return result.text;
+    },
+    // Without a machine there is nothing to run the model on; bb then hides the
+    // microphone instead of offering a button that can only fail.
+    status: async () => {
+      try {
+        await hostId();
+        return { ready: true };
+      } catch (error) {
+        return { ready: false, message: error instanceof Error ? error.message : String(error) };
+      }
+    },
   });
 
   bb.rpc.register(rpcContract, {
@@ -323,7 +354,7 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb voice-ink history [--json] [-n N] List past dictations",
     "  bb voice-ink show <id> [--json]     Show one dictation in full",
     "  bb voice-ink forget <id>|--all      Delete a dictation, or all of them",
-    "  bb voice-ink enable                 Print how to make this bb's transcription service",
+    "  bb voice-ink enable                 Point bb's microphone at this plugin",
   ].join("\n");
 
   bb.cli.register({
@@ -359,7 +390,7 @@ export default async function plugin(bb: BbPluginApi) {
       },
       {
         name: "enable",
-        summary: "Print the command that points bb's microphone at this plugin",
+        summary: "Point bb's microphone at this plugin",
         usage: "bb voice-ink enable",
       },
     ],
@@ -493,18 +524,19 @@ export default async function plugin(bb: BbPluginApi) {
           return reply({ removed }, removed ? "Deleted." : "Nothing to delete.");
         }
 
-        case "enable":
+        case "enable": {
+          const { selections } = await bb.sdk.system.setAiServiceSelection({
+            task: "voice",
+            selection: { mode: "service", pluginId: bb.pluginId, serviceId: SERVICE_ID },
+          });
           return reply(
-            { service: SERVICE_ID },
+            selections.voice,
             [
-              "Point bb's built-in microphone at this plugin:",
-              "",
-              `  npx bb-app config set BB_TRANSCRIPTION ${SERVICE_ID}/local`,
-              "",
-              "The model comes from this plugin's settings; the part after the",
-              "slash is only a label.",
+              "bb's microphone now goes to Voice Ink.",
+              "Back to bb's own choice: bb settings ai-services set voice automatic",
             ].join("\n"),
           );
+        }
       }
 
       return { exitCode: 1, stderr: usage };

@@ -1,15 +1,10 @@
 // The `bb.host` entry: it owns the recognition worker on the machine bb runs
-// on, and answers both bb's own voice service (the built-in microphone button)
-// and the plugin's streaming methods (its own button).
+// on, and answers both bb's own voice service (the built-in microphone button,
+// relayed by the server's AI service) and the plugin's streaming methods (its
+// own button).
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
-import {
-  experimental_aiServicesHostContract,
-  type ExperimentalAiInferenceCompleteOutput,
-  type ExperimentalAiVoiceTranscribeOutput,
-} from "@get-bb/plugin-sdk/ai-services";
 import {
   engineConfigSchema,
   voiceHostContract,
@@ -22,15 +17,6 @@ import { TranscriptHistory } from "./history.js";
 import { polishTranscript } from "./polish.js";
 import { WhisperEngine } from "./whisper-engine.js";
 import { WORKER_SOURCE } from "./worker-source.js";
-
-/** The AI service id this plugin registers; every call carries it. */
-export const VOICE_INK_SERVICE_ID = "voice-ink";
-
-/** Both contracts are plain method records, so one entry serves them together. */
-const hostContract = defineRpcContract({
-  ...experimental_aiServicesHostContract,
-  ...voiceHostContract,
-});
 
 /** A streamed segment is short, but a cold model still has to load first. */
 const SEGMENT_TIMEOUT_MS = 600_000;
@@ -174,49 +160,14 @@ async function readStoredConfig(dataDir: string): Promise<EngineConfig> {
   }
 }
 
-function serviceMismatch(serviceId: string): { ok: false; code: "request_failed"; message: string } {
-  return {
-    ok: false,
-    code: "request_failed",
-    message: `This plugin serves no AI service "${serviceId}".`,
-  };
-}
-
-type VoiceFailureCode = Extract<ExperimentalAiVoiceTranscribeOutput, { ok: false }>["code"];
-
-const VOICE_FAILURE_CODES: readonly VoiceFailureCode[] = [
-  "timeout",
-  "rate_limited",
-  "service_unavailable",
-  "auth_required",
-  "request_failed",
-  "invalid_response",
-];
-
-function toVoiceOutput(
-  model: string,
-  result: TranscriptionResult,
-): ExperimentalAiVoiceTranscribeOutput {
-  if (result.ok) return { ok: true, model, text: result.text };
-  const code = VOICE_FAILURE_CODES.find((candidate) => candidate === result.code);
-  return {
-    ok: false,
-    code: code ?? "service_unavailable",
-    message: result.message,
-  };
-}
+type RecordingResult =
+  | { ok: true; text: string }
+  | { ok: false; code: string; message: string };
 
 export default experimental_defineHostEntry({
-  contract: hostContract,
+  contract: voiceHostContract,
   handlers: {
-    "ai.inference.complete": (input): ExperimentalAiInferenceCompleteOutput => ({
-      ok: false,
-      code: "request_failed",
-      message: `voice-ink transcribes speech; it serves no inference for "${input.serviceId}".`,
-    }),
-
-    "ai.voice.transcribe": async (input, context): Promise<ExperimentalAiVoiceTranscribeOutput> => {
-      if (input.serviceId !== VOICE_INK_SERVICE_ID) return serviceMismatch(input.serviceId);
+    "voice.transcribeRecording": async (input, context): Promise<RecordingResult> => {
       const active = await engineFor(context as HostContext);
       const archive = historyFor(context as HostContext);
       const deadline = Date.now() + input.timeoutMs - TIMEOUT_GRACE_MS;
@@ -227,7 +178,7 @@ export default experimental_defineHostEntry({
         .begin({
           audio: Buffer.from(input.audioBase64, "base64"),
           mimeType: input.mimeType,
-          model: active.currentConfig()?.model ?? input.model,
+          model: active.currentConfig()?.model ?? DEFAULT_CONFIG.model,
           source: "voice",
         })
         .catch(() => null);
@@ -272,7 +223,7 @@ export default experimental_defineHostEntry({
         if (result.code !== "timeout") {
           await archive.fail(entryId, result.message).catch(() => {});
         }
-        return toVoiceOutput(input.model, result);
+        return { ok: false, code: result.code, message: result.message };
       }
       const config = active.currentConfig();
       const polished =
@@ -280,7 +231,7 @@ export default experimental_defineHostEntry({
       await archive.markDelivered(entryId, polished.length).catch(() => {});
       // A partial transcript reads like a finished one, so it says otherwise.
       const text = result.partial === true ? `${polished}${PARTIAL_NOTE}` : polished;
-      return { ok: true, model: input.model, text };
+      return { ok: true, text };
     },
 
     "voice.configure": async ({ config }, context): Promise<EngineStatus> => {

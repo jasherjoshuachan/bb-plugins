@@ -7,7 +7,6 @@ import { useCallback, useEffect } from "react";
 import {
   definePluginApp,
   useComposer,
-  useComposerView,
   useRpc,
   useSettings,
 } from "@get-bb/plugin-sdk/app";
@@ -22,15 +21,22 @@ import type { rpcContract } from "./server";
 
 function VoiceButton() {
   const composer = useComposer();
-  const view = useComposerView();
   const rpc = useRpc<typeof rpcContract>();
   const settings = useSettings();
 
+  // A phrase goes to the end of the draft after one space. Mentions and
+  // attachments stay: only trailing whitespace is replaced, and no pill
+  // reaches into it.
   const appendText = useCallback(
     (text: string) => {
-      composer.updateText((current) =>
-        current.trim() === "" ? text : `${current.replace(/\s+$/, "")} ${text}`,
-      );
+      composer.replace((current) => {
+        const head = current.text.replace(/\s+$/, "");
+        if (head === "") return { text, mentions: [] };
+        return {
+          text: `${head} ${text}`,
+          mentions: current.mentions.filter((mention) => mention.to <= head.length),
+        };
+      });
     },
     [composer],
   );
@@ -85,7 +91,7 @@ function VoiceButton() {
         listening && "text-destructive hover:text-destructive",
         busy && !listening && "text-foreground",
       )}
-      disabled={view.run.isSubmitting}
+      disabled={composer.isSubmitting}
       onClick={() => {
         void (listening ? stop() : start());
       }}

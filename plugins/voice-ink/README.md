@@ -12,7 +12,7 @@ running next to bb.
 ## What you get
 
 - **bb's own microphone button**, working again — every client has it,
-  including the phone app. Point `BB_TRANSCRIPTION` at this plugin (below).
+  including the phone app. Pick this plugin for voice input (below).
 - **A History panel**, opened by the microphone in the sidebar footer: every
   dictation with its recording and its full text, searchable. It is where a
   long dictation ends up in one piece (below).
@@ -46,14 +46,16 @@ bb voice-ink status          # engine state, model, resolved interpreter
 bb voice-ink warmup          # load the model now instead of on the first phrase
 ```
 
-To also take over bb's built-in microphone button:
+To also take over bb's built-in microphone button, pick **Voice Ink (local
+Whisper)** for voice input in Settings → AI services, or run either of:
 
 ```sh
-npx bb-app config set BB_TRANSCRIPTION voice-ink/local
+bb voice-ink enable
+bb settings ai-services set voice voice-ink
 ```
 
-The part after the slash is a label; the model comes from the plugin's
-settings.
+The model comes from the plugin's settings. Needs bb 0.46 or newer; older bb
+read the `BB_TRANSCRIPTION` config key instead.
 
 ## From speech to writing
 

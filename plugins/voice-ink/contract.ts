@@ -171,6 +171,26 @@ export const voiceHostContract = defineRpcContract({
     input: z.object({}).strict(),
     output: z.object({ removed: z.number() }).strict(),
   },
+  /**
+   * One whole recording from bb's own microphone button, answered within the
+   * time bb waits. The recording is filed in history before recognition starts.
+   */
+  "voice.transcribeRecording": {
+    input: z
+      .object({
+        audioBase64: z.string().min(1),
+        mimeType: z.string().min(1),
+        /** Vocabulary bb passes along for this recording, or null. */
+        prompt: z.string().nullable(),
+        /** What is left of bb's wait when the host gets the recording. */
+        timeoutMs: z.number().int().positive(),
+      })
+      .strict(),
+    output: z.union([
+      z.object({ ok: z.literal(true), text: z.string() }).strict(),
+      z.object({ ok: z.literal(false), code: z.string(), message: z.string() }).strict(),
+    ]),
+  },
   "voice.transcribeSegment": {
     input: z
       .object({
