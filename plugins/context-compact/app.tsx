@@ -17,7 +17,7 @@
 // Everything degrades quietly. A ring the selector no longer matches keeps its
 // stock hover card, and a refused compaction — BB only compacts an idle or
 // errored thread — surfaces as a toast rather than a silent no-op.
-import { definePluginApp, useComposerView } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useComposer } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 
 const PLUGIN_ID = "context-compact";
@@ -38,7 +38,7 @@ const THREAD_ID_IN_PATH = /\/threads\/([A-Za-z0-9_-]+)/;
  * composer's thread id into the DOM, where the content script can read it.
  */
 function ThreadMarker() {
-  const { scope } = useComposerView();
+  const { scope } = useComposer();
   if (scope.kind !== "thread") return null;
   return <span hidden {...{ [THREAD_ATTRIBUTE]: scope.threadId }} />;
 }
@@ -65,8 +65,8 @@ async function requestCompact(threadId: string): Promise<void> {
 }
 
 export default definePluginApp((app) => {
-  // Thread composers only: a new-thread or side-chat composer has no context
-  // ring to click.
+  // Thread composers only: a new-thread or queued-message composer has no
+  // context ring to click.
   app.composer.customize({
     id: "thread-marker",
     scopes: ["thread"],
