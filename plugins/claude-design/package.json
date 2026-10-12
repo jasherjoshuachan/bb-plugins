@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-claude-design",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "description": "Claude Design inside bb: project links, bb's browser beside the chat, and Send to Claude comments handed to an agent.",
   "license": "MIT",
@@ -18,8 +18,8 @@
     "mcp"
   ],
   "engines": {
-    "bb": ">=0.43",
-    "bbPluginSdk": ">=0.4.104"
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.37"
   },
   "bb": {
     "name": "Claude Design",
@@ -37,7 +37,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "0.4.104",
+    "@get-bb/plugin-sdk": "0.6.37",
     "@pierre/diffs": "^1.2.9",
     "@radix-ui/react-alert-dialog": "^1.1.19",
     "@radix-ui/react-context-menu": "^2.3.3",

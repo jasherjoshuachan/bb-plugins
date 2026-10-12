@@ -1,19 +1,10 @@
 // What the host-rendered entry points do: the composer's + menu row, the
 // thread panel launcher row and the command palette command. They run outside
 // React, so they reach the server and the navigator through lib/store.
-import type {
-  ComposerView,
-  PluginComposerApi,
-  PluginComposerScope,
-} from "@get-bb/plugin-sdk/app";
+import type { PluginComposerApi, PluginComposerScope } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { DesignContext } from "../contract";
-import {
-  CLAUDE_DESIGN_HOME,
-  PANEL_PATH,
-  appendToDraft,
-  handoffPrompt,
-} from "./links";
+import { CLAUDE_DESIGN_HOME, PANEL_PATH, handoffPrompt } from "./links";
 import {
   currentNavigate,
   currentRpc,
@@ -63,7 +54,6 @@ function scopeTarget(scope: PluginComposerScope): {
     case "thread":
     case "queued-message":
       return { threadId: scope.threadId, projectId: null };
-    case "side-chat":
     case "new-thread":
       return { threadId: null, projectId: scope.projectId };
   }
@@ -76,23 +66,19 @@ function scopeTarget(scope: PluginComposerScope): {
  */
 export async function insertHandoff({
   composer,
-  view,
 }: {
   composer: PluginComposerApi;
-  view: ComposerView;
 }): Promise<void> {
-  const target = scopeTarget(view.scope);
+  const target = scopeTarget(composer.scope);
   const rpc = currentRpc();
   let context: DesignContext | null = null;
   if (rpc !== null && (target.threadId !== null || target.projectId !== null)) {
     context = await rpc.call("context", target).catch(() => null);
   }
   const project = context?.project ?? null;
-  composer.updateText((current) =>
-    appendToDraft(
-      current,
-      handoffPrompt(project === null ? null : { id: project.id, name: project.name }),
-    ),
+  composer.insert(
+    handoffPrompt(project === null ? null : { id: project.id, name: project.name }),
+    { at: "end", block: true },
   );
   composer.focus();
   if (project === null && context?.bbProject != null && context.linkable) {

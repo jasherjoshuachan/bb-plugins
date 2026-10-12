@@ -105,8 +105,3 @@ export function handoffPrompt(target: HandoffTarget | null): string {
   ].join("\n\n");
 }
 
-/** Adds a block below whatever is already in the draft. */
-export function appendToDraft(current: string, block: string): string {
-  const kept = current.replace(/\s+$/, "");
-  return kept === "" ? block : `${kept}\n\n${block}`;
-}

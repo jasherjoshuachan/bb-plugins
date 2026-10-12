@@ -19,12 +19,7 @@ import { ClaudeDesignMark } from "@/components/ClaudeDesignMark";
 import { chromeButtonClass } from "@/components/HeaderAction";
 import { Icon } from "@/components/ui/icon";
 import type { rpcContract } from "@/contract";
-import {
-  appendToDraft,
-  handoffPrompt,
-  nameFromTitle,
-  projectIdFromUrl,
-} from "@/lib/links";
+import { handoffPrompt, nameFromTitle, projectIdFromUrl } from "@/lib/links";
 import { messageOf, refreshProjects, useProjects } from "@/lib/store";
 import { useDesignContext } from "@/lib/use-design-context";
 import { cn } from "@/lib/utils";
@@ -76,7 +71,7 @@ export function BrowserAction({
       navigate.toCompose({ initialPrompt: prompt, focusPrompt: true });
       return;
     }
-    composer.updateText((current) => appendToDraft(current, prompt));
+    composer.insert(prompt, { at: "end", block: true });
     composer.focus();
   };
 

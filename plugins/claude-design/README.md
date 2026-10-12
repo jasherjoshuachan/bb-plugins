@@ -33,7 +33,7 @@ MCP server.
 
 ## Requirements
 
-- bb 0.43 or newer.
+- bb 0.46 or newer.
 - Claude Code with the **`claude-design` MCP server** connected and signed in
   (`claude mcp list` should show it). The agent does all Claude Design work
   through its tools (`list_comments`, `read_file`, `finalize_plan`,

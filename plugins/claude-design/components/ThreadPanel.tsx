@@ -8,12 +8,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import {
-  CLAUDE_DESIGN_HOME,
-  PANEL_PATH,
-  appendToDraft,
-  handoffPrompt,
-} from "@/lib/links";
+import { CLAUDE_DESIGN_HOME, PANEL_PATH, handoffPrompt } from "@/lib/links";
 import { linkedProject, useProjects } from "@/lib/store";
 import { useDesignContext } from "@/lib/use-design-context";
 
@@ -73,12 +68,10 @@ export function ThreadPanel({ threadId }: PluginThreadPanelProps) {
         </Button>
         <Button
           onClick={() => {
-            composer.updateText((current) =>
-              appendToDraft(
-                current,
-                handoffPrompt({ id: project.id, name: project.name }),
-              ),
-            );
+            composer.insert(handoffPrompt({ id: project.id, name: project.name }), {
+              at: "end",
+              block: true,
+            });
             composer.focus();
           }}
           size="sm"
