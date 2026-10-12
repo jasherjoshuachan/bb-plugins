@@ -56,10 +56,10 @@ export interface WhisperEngineOptions {
 const READY_TIMEOUT_MS = 600_000;
 const STDERR_TAIL_LINES = 8;
 /**
- * bb gives a transcription ten seconds per attempt and retries once. A minute
- * of speech takes longer than that, so finished and in-flight work is kept
- * under a key derived from the audio: the retry finds the job already running
- * and waits for it instead of throwing the first attempt's work away.
+ * A caller may give up and ask again (bb before 0.46 allowed ten seconds per
+ * attempt and retried once), so finished and in-flight work is kept under a
+ * key derived from the audio: the retry finds the job already running and
+ * waits for it instead of throwing the first attempt's work away.
  */
 const JOB_RETENTION_MS = 10 * 60_000;
 /** Recognition is never left running longer than this, whatever callers do. */

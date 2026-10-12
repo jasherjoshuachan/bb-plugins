@@ -26,8 +26,13 @@ export type { EngineStatus, TranscriptionResult };
 /** The AI service id: what `bb settings ai-services set voice` takes. */
 const SERVICE_ID = "voice-ink";
 
-/** How long bb waits for one transcription before it gives up on it. */
-const VOICE_WAIT_MS = 10_000;
+/**
+ * How long bb waits for one transcription before it gives up on it: bb 0.46
+ * allows a voice service 70 seconds in a single attempt (AI_TASK_TIMEOUT_MS in
+ * its server; the SDK comment's "10 seconds" is out of date). The host answers
+ * with what it has just before that, so the composer never gets nothing.
+ */
+const VOICE_WAIT_MS = 70_000;
 
 /** Cleanup backends the settings offer; the value is validated on the way out. */
 const CLEANUP_PROVIDERS = ["off", "groq", "anthropic", "openai-compatible"] as const;
@@ -160,8 +165,8 @@ export default async function plugin(bb: BbPluginApi) {
       label: "Show this plugin's own microphone button",
       default: false,
     },
-    // bb waits ten seconds per attempt and tries twice; a few minutes of
-    // speech take longer, so what it does not wait for has to be kept
+    // bb waits seventy seconds for a transcription; a long dictation on a
+    // slow model takes longer, so what it does not wait for has to be kept
     // somewhere the user can still reach it.
     history: {
       type: "boolean",
@@ -238,19 +243,23 @@ export default async function plugin(bb: BbPluginApi) {
     displayName: "Voice Ink (local Whisper)",
     // bb's own microphone button. The host answers with whatever is recognized
     // before bb stops waiting and keeps the whole text in history.
-    transcribe: async (audio, { hint }) => {
+    transcribe: async (audio, { signal, hint }) => {
       const started = Date.now();
       const id = await hostId();
       const audioBase64 = Buffer.from(await audio.arrayBuffer()).toString("base64");
+      // A second of the wait is left for the way back to bb.
+      const budget = Math.max(1_000, VOICE_WAIT_MS - 1_000 - (Date.now() - started));
       const result = await host.call(
         "voice.transcribeRecording",
         {
           audioBase64,
           mimeType: audio.type === "" ? "application/octet-stream" : audio.type,
           prompt: hint,
-          timeoutMs: Math.max(1_000, VOICE_WAIT_MS - (Date.now() - started)),
+          timeoutMs: budget,
         },
-        { hostId: id },
+        // A host call fails after 30 seconds unless told otherwise, which a long
+        // dictation outlasts; the host itself answers within `budget`.
+        { hostId: id, signal, timeoutMs: budget + 5_000 },
       );
       if (!result.ok) throw new Error(result.message);
       return result.text;

@@ -124,7 +124,7 @@ export default definePluginApp((app) => {
   });
 
   // Dictations outlive the composer they were meant for: bb stops waiting
-  // after twenty seconds, recognition does not. This is where the whole text
+  // after seventy seconds, recognition does not. This is where the whole text
   // and the recording it came from can be found afterwards.
   app.slots.navPanel({
     id: "voice-ink",

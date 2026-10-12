@@ -92,14 +92,14 @@ already loaded:
 | `medium` | two to three times that | noticeably better |
 | `large-v3-turbo` | slower still | no better than `medium` at int8 on this CPU |
 
-bb's own microphone button gives a plugin **10 seconds per attempt** and retries
-once, so on this hardware only `small` fits a minute of speech. `medium` is
-worth it for short phrases, or through the plugin's own button, which has no
-such limit.
+bb's own microphone button gives a plugin **70 seconds in one attempt** (bb
+0.46; before that, 10 seconds per attempt and one retry), so on this hardware
+`small` fits several minutes of speech and `medium` a minute or two. The
+plugin's own button has no such limit.
 
 ## Long dictations
 
-A minute of speech takes longer to recognize than bb allows for one attempt, so
+A long dictation on a slow model can take longer to recognize than bb waits, so
 three things keep it from being lost:
 
 - **A long recording is split at pauses and recognized in parallel** — but only
@@ -107,17 +107,19 @@ three things keep it from being lost:
   one and a half cores, so on a bigger machine three passes cut a two-minute
   dictation roughly in half.
 - **Work outlives the attempt that started it.** The recognition is keyed by the
-  audio, so bb's retry joins the job already running instead of starting over.
-- **A caller that runs out of time twice gets what has been recognized so far**,
+  audio, so a retry (older bb made one) joins the job already running instead
+  of starting over.
+- **A caller that runs out of time gets what has been recognized so far**,
   marked in the composer as partial, while recognition carries on in the
   background.
 - **The whole transcript lands in History**, along with the recording — so the
   part bb never waited for is one panel away, not gone.
 
-Measured on this machine (four cores, no GPU, two-core ceiling, `small`): a
-2:55 recording reaches the composer as its first 664 characters after bb's
-19.4 seconds, and the panel holds all 1993 characters 33 seconds after the
-recording arrived.
+Measured on this machine with bb 0.43 (four cores, no GPU, two-core ceiling,
+`small`): a 2:55 recording reached the composer as its first 664 characters
+after bb's 19.4 seconds, and the panel held all 1993 characters 33 seconds
+after the recording arrived. With bb 0.46 waiting 70 seconds, the same
+recording arrives whole.
 
 A machine with an NVIDIA GPU is a different story: set **Precision** to
 `float16` and the same models run several times faster.

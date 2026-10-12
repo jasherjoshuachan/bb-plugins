@@ -1,11 +1,11 @@
 // Every dictation this machine heard, kept on disk: the audio and the
 // transcript that came out of it.
 //
-// It exists because bb gives a transcription ten seconds per attempt and two
-// attempts, while a few minutes of speech take longer than that. What bb does
-// not wait for used to live in a variable and die with the worker. Now the
-// audio is written before recognition starts and the transcript is filled in
-// when it finishes — whoever was waiting, and whether or not they gave up.
+// It exists because bb waits only so long for a transcription (seventy seconds
+// since 0.46, twice ten before), while a long dictation can take longer. What
+// bb does not wait for used to live in a variable and die with the worker. Now
+// the audio is written before recognition starts and the transcript is filled
+// in when it finishes — whoever was waiting, and whether or not they gave up.
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";

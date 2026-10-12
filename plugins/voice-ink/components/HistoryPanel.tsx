@@ -1,8 +1,8 @@
 // History — every dictation this machine heard, newest first.
 //
-// It is not a convenience list. bb waits ten seconds per transcription attempt
-// and tries twice; a few minutes of speech take longer, so the composer gets
-// what was ready and the rest only exists here. That is why an entry whose
+// It is not a convenience list. bb waits seventy seconds for a transcription;
+// a long dictation can take longer, so the composer gets what was ready and
+// the rest only exists here. That is why an entry whose
 // text outran the composer is called out, and why the list keeps refreshing
 // while something is still being recognized.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
