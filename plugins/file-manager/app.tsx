@@ -112,8 +112,8 @@ export default definePluginApp((app) => {
         label: "From File Manager…",
         icon: "FolderOpen",
         description: "Attach a file from the machine bb runs on.",
-        run: ({ view }) => {
-          requestFilePick(composerScopeKey(view.scope));
+        run: ({ composer }) => {
+          requestFilePick(composerScopeKey(composer.scope));
         },
       },
     ],

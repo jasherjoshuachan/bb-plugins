@@ -1,8 +1,8 @@
 // lib/composer-bus.ts — the only way the host-rendered "+" row can reach a
 // component of ours.
 //
-// A `plusMenu` item is drawn by bb, not by this plugin: `run({ composer, view })`
-// is a callback, not a React tree, so it has nowhere to mount a dialog. The
+// A `plusMenu` item is drawn by bb, not by this plugin: `run({ composer })` is
+// a callback, not a React tree, so it has nowhere to mount a dialog. The
 // two surfaces `composer.customize` does mount are `actions` and `banners`,
 // and only one of them is usable here:
 //
@@ -14,16 +14,16 @@
 //     no DOM and no gap.
 //
 // So the banner is the mount point and this module carries the "open" request
-// to it. Banners are mounted once per composer on screen (a thread and its
-// side chat can both be live), so a request names the composer scope it came
-// from and only the banner in that scope answers.
+// to it. Banners are mounted once per composer on screen (a thread and a
+// queued message being edited in it can both be live), so a request names the
+// composer scope it came from and only the banner in that scope answers.
 import type { PluginComposerScope } from "@get-bb/plugin-sdk/app";
 
 /**
  * Stable identity for one composer, mirroring the host's own scope key.
  *
- * Every field matters: two side chats under one thread differ only by `tabId`,
- * and a queued message being edited is a different draft from the thread's.
+ * Every field matters: a queued message being edited is a different draft from
+ * the thread's.
  */
 export function composerScopeKey(scope: PluginComposerScope): string {
   switch (scope.kind) {
@@ -31,14 +31,6 @@ export function composerScopeKey(scope: PluginComposerScope): string {
       return `thread:${scope.threadId}`;
     case "queued-message":
       return `queued-message:${scope.threadId}:${scope.queuedMessageId}`;
-    case "side-chat":
-      return [
-        "side-chat",
-        scope.projectId,
-        scope.parentThreadId,
-        scope.tabId,
-        scope.childThreadId ?? "",
-      ].join(":");
     case "new-thread":
       return `new-thread:${scope.projectId ?? ""}`;
   }

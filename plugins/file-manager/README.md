@@ -470,7 +470,7 @@ the last folder*, which is one browser profile's memory of a moment.
 
 ## Requirements
 
-- bb `>= 0.40` with `@get-bb/plugin-sdk >= 0.4.21` (Node 24).
+- bb `>= 0.46` with `@get-bb/plugin-sdk >= 0.6.37` (Node 24).
 - Archive extraction shells out to `tar`, `unzip` and `7z`/`7za`/`7zz`. Formats
   whose tool is missing are reported as unsupported instead of failing at
   extraction time; everything else works without them.

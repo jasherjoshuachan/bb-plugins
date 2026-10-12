@@ -12,11 +12,12 @@
 // own (see lib/composer-bus.ts for why this is the mount point and not
 // `actions`). An idle picker therefore contributes no DOM to the composer.
 import { useCallback, useEffect, useState } from "react";
-import { useComposer, useComposerView } from "@get-bb/plugin-sdk/app";
+import { useComposer } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 
-import { MENTION_PROVIDER_ID, type FileEntry } from "../contract";
+import type { FileEntry } from "../contract";
 import { composerScopeKey, subscribeFilePickRequests } from "../lib/composer-bus";
+import { addFileMentions } from "../lib/composer-mentions";
 import { errorToastText } from "../lib/errors";
 import { useFmRpc } from "../lib/fm-rpc";
 import { FilePickerDialog } from "./dialogs/FilePickerDialog";
@@ -30,8 +31,7 @@ interface PickerRoots {
 export function ComposerFilePicker() {
   const rpc = useFmRpc();
   const composer = useComposer();
-  const view = useComposerView();
-  const scopeKey = composerScopeKey(view.scope);
+  const scopeKey = composerScopeKey(composer.scope);
   const [open, setOpen] = useState(false);
   const [roots, setRoots] = useState<PickerRoots | null>(null);
 
@@ -71,13 +71,7 @@ export function ComposerFilePicker() {
     (entries: readonly FileEntry[]) => {
       // One mention per file, in the order they were picked: the draft reads
       // as the list the user built.
-      for (const entry of entries) {
-        composer.insertMention({
-          provider: MENTION_PROVIDER_ID,
-          id: entry.path,
-          label: entry.name,
-        });
-      }
+      addFileMentions(composer, entries);
       const first = entries[0];
       if (first === undefined) return;
       toast.success(

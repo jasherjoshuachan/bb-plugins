@@ -24,7 +24,6 @@ import { toast } from "sonner";
 
 import {
   MAX_LIST_ENTRIES,
-  MENTION_PROVIDER_ID,
   type FileEntry,
   type FileManagerErrorCode,
   type ViewMode,
@@ -52,6 +51,7 @@ import {
   BOOKMARK_RENAME_FAILED_TEXT,
   findBookmark,
 } from "../lib/bookmarks";
+import { addFileMentions } from "../lib/composer-mentions";
 import { downloadEntry, downloadZip } from "../lib/download";
 import {
   batchFailureText,
@@ -1438,13 +1438,7 @@ export function FileManagerSurface({
       toast.error("Only files can be added to the chat.");
       return;
     }
-    for (const file of files) {
-      composerRef.current.insertMention({
-        provider: MENTION_PROVIDER_ID,
-        id: file.path,
-        label: file.name,
-      });
-    }
+    addFileMentions(composerRef.current, files);
     toast.success(
       files.length === 1 && files[0] !== undefined
         ? `${files[0].name} added to the chat`

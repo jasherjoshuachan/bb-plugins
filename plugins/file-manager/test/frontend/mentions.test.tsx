@@ -10,11 +10,7 @@
 import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type {
-  ComposerView,
-  PluginComposerApi,
-  PluginComposerScope,
-} from "@get-bb/plugin-sdk/app";
+import type { PluginComposerApi, PluginComposerScope } from "@get-bb/plugin-sdk/app";
 import type { PluginRpcTestHandlers, RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 
 import type { FileEntry, FileManagerContract } from "../../contract";
@@ -154,31 +150,33 @@ const THREAD_SCOPE: PluginComposerScope = { kind: "thread", threadId: "thread_1"
 const OTHER_SCOPE: PluginComposerScope = { kind: "thread", threadId: "thread_2" };
 
 /**
- * The host hands `run` a live composer and view. Only `view.scope` is read (the
- * row's whole job is to name the composer it fired in), so the rest is a stub
- * rather than a second mounted composer.
+ * The host hands `run` a live composer. Only `composer.scope` is read (the row's
+ * whole job is to name the composer it fired in), so the rest is a stub rather
+ * than a second mounted composer.
  */
 function runPlusMenu(scope: PluginComposerScope): void {
-  const view = {
-    scope,
-    layout: "expanded",
-    draft: { text: "", isEmpty: true, attachmentCount: 0 },
-    run: { isRunning: false, isSubmitting: false },
-  } as ComposerView;
   act(() => {
     void customization.plusMenu?.[0]?.run({
-      composer: {} as PluginComposerApi,
-      view,
+      composer: { scope } as PluginComposerApi,
     });
   });
 }
 
 /** The bare banner, mounted the way the host mounts it: inside one composer. */
-function mountPicker(scope: PluginComposerScope = THREAD_SCOPE): RenderedSlot {
+function mountPicker(scope: PluginComposerScope = THREAD_SCOPE, text = ""): RenderedSlot {
   return renderSlot(
     { component: ComposerFilePicker },
     {},
-    { rpc: baseRpc(), composer: { scope } },
+    { rpc: baseRpc(), composer: { scope, text } },
+  );
+}
+
+/** The file pills in the draft, in order, as this plugin's provider will see them. */
+function filePills(slot: RenderedSlot): { provider: string; id: string; label: string }[] {
+  return slot.inspection.composer.draft.mentions.flatMap((mention) =>
+    mention.kind === "plugin"
+      ? [{ provider: mention.provider, id: mention.id, label: mention.label }]
+      : [],
   );
 }
 
@@ -234,7 +232,7 @@ describe("row menu → Add to chat (§8.8)", () => {
 
     fireEvent.click(itemIn(menu, "Add to chat"));
 
-    expect(slot.inspection.composer.mentions).toEqual([
+    expect(filePills(slot)).toEqual([
       { provider: MENTION_PROVIDER_ID, id: NOTES.path, label: NOTES.name },
     ]);
     expect(toasts.success).toEqual(["notes.txt added to the chat"]);
@@ -248,7 +246,7 @@ describe("row menu → Add to chat (§8.8)", () => {
     const menu = await openRowMenu(slot, OTHER.path);
     fireEvent.click(itemIn(menu, "Add to chat"));
 
-    expect(slot.inspection.composer.mentions.map((mention) => mention.id)).toEqual([
+    expect(filePills(slot).map((mention) => mention.id)).toEqual([
       NOTES.path,
       OTHER.path,
     ]);
@@ -303,7 +301,7 @@ describe("+ menu → From File Manager… (§8.8)", () => {
     fireEvent.click(within(dialog).getByText("notes.txt"));
     fireEvent.click(confirm);
 
-    expect(slot.inspection.composer.mentions).toEqual([
+    expect(filePills(slot)).toEqual([
       { provider: MENTION_PROVIDER_ID, id: NOTES.path, label: NOTES.name },
     ]);
     expect(toasts.success).toEqual(["notes.txt added to the chat"]);
@@ -324,7 +322,7 @@ describe("+ menu → From File Manager… (§8.8)", () => {
     // A double-click is the shortcut every file browser has.
     fireEvent.doubleClick(within(dialog).getByText("inside.md"));
 
-    expect(slot.inspection.composer.mentions).toEqual([
+    expect(filePills(slot)).toEqual([
       { provider: MENTION_PROVIDER_ID, id: INSIDE.path, label: INSIDE.name },
     ]);
   });
@@ -346,7 +344,7 @@ describe("+ menu → From File Manager… (§8.8)", () => {
     );
 
     fireEvent.click(confirm);
-    expect(slot.inspection.composer.mentions).toEqual([
+    expect(filePills(slot)).toEqual([
       { provider: MENTION_PROVIDER_ID, id: REPORT.path, label: REPORT.name },
       { provider: MENTION_PROVIDER_ID, id: NOTES.path, label: NOTES.name },
     ]);
@@ -367,7 +365,7 @@ describe("+ menu → From File Manager… (§8.8)", () => {
     // come with it.
     expect(rows.filter((row) => row.getAttribute("data-selected") === "true")).toHaveLength(3);
     fireEvent.click(within(dialog).getByTestId("fm-picker-confirm"));
-    expect(slot.inspection.composer.mentions.map((mention) => mention.id)).toEqual([
+    expect(filePills(slot).map((mention) => mention.id)).toEqual([
       NOTES.path,
       OTHER.path,
       REPORT.path,
@@ -402,7 +400,7 @@ describe("+ menu → From File Manager… (§8.8)", () => {
     fireEvent.click(within(dialog).getAllByTestId("fm-picker-check")[0]!);
 
     fireEvent.click(within(dialog).getByTestId("fm-picker-confirm"));
-    expect(slot.inspection.composer.mentions.map((mention) => mention.id)).toEqual([
+    expect(filePills(slot).map((mention) => mention.id)).toEqual([
       NOTES.path,
       INSIDE.path,
     ]);
@@ -417,10 +415,25 @@ describe("+ menu → From File Manager… (§8.8)", () => {
     fireEvent.click(within(dialog).getAllByTestId("fm-picker-check")[0]!);
     fireEvent.doubleClick(within(dialog).getByText("report.csv"));
 
-    expect(slot.inspection.composer.mentions.map((mention) => mention.id)).toEqual([
+    expect(filePills(slot).map((mention) => mention.id)).toEqual([
       NOTES.path,
       REPORT.path,
     ]);
+  });
+
+  it("keeps a space between the pill and the text on either side", async () => {
+    const slot = mountPicker(THREAD_SCOPE, "see");
+    runPlusMenu(THREAD_SCOPE);
+    const dialog = await slot.findByTestId("fm-file-picker");
+    await within(dialog).findByText("notes.txt");
+
+    fireEvent.doubleClick(within(dialog).getByText("notes.txt"));
+
+    const { text, mentions } = slot.inspection.composer.draft;
+    const pill = mentions[0]!;
+    expect(text.slice(0, pill.from)).toBe("see ");
+    expect(text.slice(pill.to)).toBe(" ");
+    expect(slot.inspection.composer.focusCount).toBe(1);
   });
 
   it("inserts nothing twice when the confirm button is clicked twice", async () => {
@@ -434,6 +447,6 @@ describe("+ menu → From File Manager… (§8.8)", () => {
     fireEvent.click(confirm);
     fireEvent.click(confirm);
 
-    expect(slot.inspection.composer.mentions).toHaveLength(1);
+    expect(filePills(slot)).toHaveLength(1);
   });
 });
