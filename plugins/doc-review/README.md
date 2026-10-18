@@ -13,7 +13,7 @@ PowerPoint, and Excel rendering and its classic PDF view live here now.
 
 | Files | How they show |
 | --- | --- |
-| `.md`, `.markdown` | Rendered with bb's Markdown styles; comments map to source lines |
+| `.md`, `.markdown` | Rendered with bb's Markdown styles; comments map to source lines; `#section` links scroll to the heading, relative file links open from the document's folder |
 | `.pdf` | Page by page, with a selectable text layer |
 | Word: `docx`, `doc`, `odt`, `rtf` and templates | Converted to PDF by LibreOffice, then page by page |
 | PowerPoint: `pptx`, `ppt`, `odp` and templates | Converted to PDF by LibreOffice, then slide by slide |
@@ -194,6 +194,9 @@ bb doc-review reply <id> --note "question or reason"
 - In the classic view, comments are not shown; switch back with **Comment**.
   Phones have no usable built-in PDF viewer, so the button is hidden there.
 - A text selection that spans two pages keeps the part on the first page.
+- Relative file links in Markdown open only when the file belongs to a thread
+  (its workspace or thread storage); a link to another file opens that file
+  at its top, without jumping to its `#section`.
 - HTML pages run with an opaque origin: `localStorage` is unavailable and a
   page's own `fetch` of files next to it is refused. A link that leaves the
   page shows a bar to return; comments work on the reviewed file only.

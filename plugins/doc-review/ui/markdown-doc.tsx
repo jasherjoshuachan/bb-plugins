@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentProps,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type RefObject,
@@ -17,7 +18,7 @@ import { Markdown } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import type { Anchor, ReviewComment } from "../src/types";
-import { narrowLines, rewriteImages, splitBlocks, type MdBlock } from "./md-blocks";
+import { findHeading, narrowLines, rewriteImages, splitBlocks, type MdBlock } from "./md-blocks";
 import { isCommentShortcut, SelectionMenu } from "./selection-menu";
 import {
   clearHighlights,
@@ -44,10 +45,13 @@ interface Pin {
   status: ReviewComment["status"];
 }
 
-const Block = memo(function Block({ block }: { block: MdBlock }) {
+/** Where the document lives, so bb opens its relative file links from the document's folder. */
+export type MarkdownDocument = ComponentProps<typeof Markdown>["experimental_document"];
+
+const Block = memo(function Block({ block, linkDocument }: { block: MdBlock; linkDocument: MarkdownDocument }) {
   return (
     <div data-block="" data-start={block.start} data-end={block.end} className="doc-review-block">
-      <Markdown content={block.markdown} />
+      <Markdown content={block.markdown} experimental_document={linkDocument} />
     </div>
   );
 });
@@ -74,6 +78,7 @@ export function MarkdownDoc({
   instanceId,
   content,
   assetBaseUrl,
+  linkDocument,
   comments,
   activeId,
   scrollRequest,
@@ -89,6 +94,7 @@ export function MarkdownDoc({
   instanceId: string;
   content: string;
   assetBaseUrl: string | null;
+  linkDocument?: MarkdownDocument;
   comments: ReviewComment[];
   activeId: string | null;
   /** Changes when the list asks to scroll to the active comment. */
@@ -318,6 +324,26 @@ export function MarkdownDoc({
     }
   };
 
+  // bb sends "#section" links to the browser; scroll to the heading here instead.
+  const onClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const element = root.current;
+    const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+    const href = link?.getAttribute("href") ?? "";
+    if (!element || !link || !element.contains(link) || !href.startsWith("#")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    let id = href.slice(1);
+    try {
+      id = decodeURIComponent(id);
+    } catch {
+      // Keep the raw fragment.
+    }
+    const headings = [...element.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")];
+    const byId = id ? element.querySelector<HTMLElement>(`[id="${CSS.escape(id)}"]`) : null;
+    const target = byId ?? headings[findHeading(href, headings.map((heading) => heading.textContent ?? ""))];
+    target?.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+
   // Under the comment sheet, room below the text lets its last lines scroll into view.
   const covered = coveredBottom > 0 ? Math.round((scroller.current?.clientHeight ?? 0) * coveredBottom) : 0;
 
@@ -329,6 +355,7 @@ export function MarkdownDoc({
       className="doc-review-md relative mx-auto w-full max-w-3xl py-5 pl-10 pr-5"
       style={covered > 0 ? { paddingBottom: covered + 20 } : undefined}
       onClick={onClick}
+      onClickCapture={onClickCapture}
       onContextMenu={onContextMenu}
     >
       {menu ? (
@@ -346,7 +373,7 @@ export function MarkdownDoc({
       {blocks.length === 0 ? (
         <p className="text-sm text-muted-foreground">This file is empty.</p>
       ) : (
-        blocks.map((block) => <Block key={`${block.start}:${block.markdown.length}`} block={block} />)
+        blocks.map((block) => <Block key={`${block.start}:${block.markdown.length}`} block={block} linkDocument={linkDocument} />)
       )}
       {pins.map((pin) => (
         <button

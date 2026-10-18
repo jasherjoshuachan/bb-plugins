@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { narrowLines, rewriteImages, splitBlocks } from "./md-blocks";
+import { documentRoot, findHeading, narrowLines, rewriteImages, splitBlocks } from "./md-blocks";
 
 const SOURCE = [
   "---", // 1
@@ -73,5 +73,44 @@ describe("rewriteImages", () => {
   it("leaves absolute, remote, and parent paths alone", () => {
     const text = "![a](https://e.com/a.png) ![b](/abs.png) ![c](../up.png)";
     expect(rewriteImages(text, "https://x/p")).toBe(text);
+  });
+});
+
+describe("findHeading", () => {
+  const headings = ["Введение", "Раздел 2. Итоги", "Stop & run", "Notes", "Notes"];
+
+  it("matches GitHub and GitLab slugs of the same heading", () => {
+    expect(findHeading("#раздел-2-итоги", headings)).toBe(1);
+    expect(findHeading("#stop--run", headings)).toBe(2);
+    expect(findHeading("#stop-run", headings)).toBe(2);
+  });
+
+  it("decodes percent-encoded fragments", () => {
+    expect(findHeading(`#${encodeURIComponent("введение")}`, headings)).toBe(0);
+  });
+
+  it("picks a repeated heading by its -N suffix", () => {
+    expect(findHeading("#notes", headings)).toBe(3);
+    expect(findHeading("#notes-1", headings)).toBe(4);
+    expect(findHeading("#notes-2", headings)).toBe(-1);
+  });
+
+  it("returns -1 for an unknown or empty fragment", () => {
+    expect(findHeading("#missing", headings)).toBe(-1);
+    expect(findHeading("#", headings)).toBe(-1);
+  });
+});
+
+describe("documentRoot", () => {
+  it("strips the opener path from the absolute path", () => {
+    expect(documentRoot("/srv/repo/docs/plan.md", "docs/plan.md")).toBe("/srv/repo");
+    expect(documentRoot("/srv/repo/docs/plan.md", "./docs/plan.md")).toBe("/srv/repo");
+    expect(documentRoot("/plan.md", "plan.md")).toBe("/");
+  });
+
+  it("refuses paths that do not line up", () => {
+    expect(documentRoot("/srv/repo/docs/plan.md", "other/plan.md")).toBeNull();
+    expect(documentRoot("/srv/repo/myplan.md", "plan.md")).toBeNull();
+    expect(documentRoot("/srv/repo/plan.md", "")).toBeNull();
   });
 });

@@ -152,3 +152,47 @@ export function narrowLines(
   if (tailAt >= 0) return { start: range.start, end: lineAt(tailAt + tail.length - 1) };
   return range;
 }
+
+/** Heading text or a link fragment reduced to letters and digits, so GitHub, GitLab, and hand-written slugs all compare equal. */
+export function headingKey(text: string): string {
+  return text.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+/**
+ * The heading a `#fragment` link points at, as an index into `headings`, or -1.
+ * A `-N` suffix picks the N-th repeat of a heading, the way GitHub numbers
+ * duplicate slugs.
+ */
+export function findHeading(fragment: string, headings: readonly string[]): number {
+  let decoded = fragment.replace(/^#/, "");
+  try {
+    decoded = decodeURIComponent(decoded);
+  } catch {
+    // A stray "%" stays as typed.
+  }
+  const keys = headings.map(headingKey);
+  const exact = keys.indexOf(headingKey(decoded));
+  if (exact >= 0 && headingKey(decoded)) return exact;
+  const repeat = /^(.*)-(\d+)$/.exec(decoded);
+  if (!repeat) return -1;
+  const base = headingKey(repeat[1] ?? "");
+  let seen = -1;
+  for (let index = 0; index < keys.length; index += 1) {
+    if (keys[index] !== base || !base) continue;
+    seen += 1;
+    if (seen === Number(repeat[2])) return index;
+  }
+  return -1;
+}
+
+/**
+ * The folder an opener path is relative to: the absolute path with the
+ * opener's relative path taken off its end. Null when they do not line up.
+ */
+export function documentRoot(absPath: string, relativePath: string): string | null {
+  const relative = relativePath.replace(/^\.?\/+/, "").replace(/\/+$/, "");
+  if (!relative) return null;
+  if (absPath === `/${relative}`) return "/";
+  if (!absPath.endsWith(`/${relative}`)) return null;
+  return absPath.slice(0, absPath.length - relative.length - 1) || "/";
+}

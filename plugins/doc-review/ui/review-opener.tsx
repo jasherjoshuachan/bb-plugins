@@ -41,7 +41,8 @@ import {
 import { CommentEditor } from "./comment-editor";
 import { CommentList, type CommentActions } from "./comment-list";
 import { HtmlDoc } from "./html-doc";
-import { MarkdownDoc, type Point } from "./markdown-doc";
+import { MarkdownDoc, type MarkdownDocument, type Point } from "./markdown-doc";
+import { documentRoot } from "./md-blocks";
 import { PagesDoc, type PageMode } from "./pages-doc";
 import { SheetDoc } from "./sheet-doc";
 import { errorText, useComments, useReviewDoc, useReviewRpc } from "./use-review";
@@ -260,13 +261,42 @@ function SendMenu({
   );
 }
 
+/**
+ * Where bb resolves the Markdown's relative file links from: the workspace or
+ * thread storage the file was opened in. Undefined where bb has no such root.
+ */
+function linkDocumentFor(
+  doc: ReviewDoc,
+  source: PluginFileOpenerSource,
+  path: string | undefined,
+  threadId: string | null,
+): MarkdownDocument {
+  const rootPath = path ? documentRoot(doc.absPath, path) : null;
+  if (!rootPath || !threadId) return undefined;
+  const relative = doc.absPath.slice(rootPath === "/" ? 1 : rootPath.length + 1);
+  if (source.kind === "workspace" && source.environmentId) {
+    return { threadId, rootPath, target: { kind: "workspace", environmentId: source.environmentId, path: relative } };
+  }
+  if (source.kind === "thread-storage" && source.threadId) {
+    return {
+      threadId: source.threadId,
+      rootPath,
+      target: { kind: "thread-storage", threadId: source.threadId, path: relative },
+    };
+  }
+  return undefined;
+}
+
 export function Workspace({
   doc,
   source,
+  path,
   onShowOriginal,
 }: {
   doc: ReviewDoc;
   source: PluginFileOpenerSource;
+  /** The opener's path, relative to the source's root. */
+  path?: string;
   /** Absent where bb's own preview is not available. */
   onShowOriginal?: () => void;
 }) {
@@ -274,6 +304,11 @@ export function Workspace({
   const navigate = useBbNavigate();
   const context = useBbContext();
   const threadId = context.threadId ?? source.threadId ?? null;
+  // Keyed on values: a new object would re-render every Markdown block.
+  const linkDocument = useMemo(
+    () => linkDocumentFor(doc, source, path, threadId),
+    [doc.absPath, source.kind, source.environmentId, source.threadId, path, threadId], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const instanceId = useId();
   const root = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -568,6 +603,7 @@ export function Workspace({
       instanceId={instanceId}
       content={content.content}
       assetBaseUrl={content.assetBaseUrl}
+      linkDocument={linkDocument}
       comments={list}
       activeId={activeId}
       scrollRequest={scrollRequest}
@@ -823,5 +859,5 @@ export function ReviewOpener({ path, source, Original }: PluginFileOpenerProps) 
       </Centered>
     );
   }
-  return <Workspace doc={doc} source={source} onShowOriginal={() => setOriginal(true)} />;
+  return <Workspace doc={doc} source={source} path={path} onShowOriginal={() => setOriginal(true)} />;
 }
