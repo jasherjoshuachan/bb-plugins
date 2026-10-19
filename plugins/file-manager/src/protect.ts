@@ -133,13 +133,24 @@ export async function findProtected(candidate: string): Promise<string | null> {
  * Refuse a mutation that touches a protected location. `action` is the verb
  * shown to the user ("delete", "move", "upload into", …).
  */
-export async function assertNotProtected(candidate: string, action: string): Promise<void> {
-  const hit = await findProtected(candidate);
-  if (hit === null) return;
-  const relative = path.relative(getRoot(), hit) || hit;
+export async function assertNotProtected(
+  candidate: string,
+  action: string,
+  options: { subtree?: boolean } = {},
+): Promise<void> {
+  const locations = await protectedLocations();
+  const hit = locations.find((location) => isSameOrInside(candidate, location));
+  // With `subtree`, the whole entry is removed or replaced (delete, move,
+  // rename, overwrite), so a folder that holds a protected location
+  // (~/Library, ~/.config) would carry it along: refuse that too.
+  const inside =
+    hit ?? (options.subtree ? locations.find((location) => isSameOrInside(location, candidate)) : undefined);
+  if (inside === undefined) return;
+  const relative = path.relative(getRoot(), inside) || inside;
+  const reason = hit === undefined ? "contains" : "is";
   throw fmError(
     "protected_path",
-    `${candidate}: refusing to ${action} — "~/${relative}" is a protected location ` +
+    `${candidate}: refusing to ${action} — it ${reason} "~/${relative}", a protected location ` +
       "(credentials or configuration). Change it outside the File Manager if you really mean it.",
   );
 }

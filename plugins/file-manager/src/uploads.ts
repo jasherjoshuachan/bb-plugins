@@ -651,7 +651,7 @@ export async function createUploads(
         : baseReal;
 
       let target = await resolveNew(destDir, session.fileName);
-      await assertNotProtected(target, "upload into");
+      await assertNotProtected(target, "upload into", { subtree: true });
       if (await exists(target)) {
         if (input.conflict === "fail") throw fmError("exists", target);
         if (input.conflict === "rename") {

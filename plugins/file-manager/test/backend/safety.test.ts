@@ -436,6 +436,32 @@ describe("protected locations", () => {
     expect(await readdir(path.join(root, ".ssh"))).toEqual(["id_ed25519"]);
   });
 
+  it("refuses delete, move and rename of a folder that contains a protected location", async () => {
+    const del = await deleteEntries(bb, {
+      paths: [path.join(root, "Library"), path.join(root, ".config")],
+      recursive: true,
+    });
+    expect(del.failed.map((row) => row.code)).toEqual(["protected_path", "protected_path"]);
+    expect(await exists(path.join(root, "Library", "Keychains", "login.keychain-db"))).toBe(true);
+
+    await mkdir(path.join(root, "elsewhere"));
+    const moved = await moveEntries(bb, {
+      paths: [path.join(root, "Library")],
+      destinationDir: path.join(root, "elsewhere"),
+      conflict: "fail",
+    });
+    expect(moved.failed.map((row) => row.code)).toEqual(["protected_path"]);
+    await expectProtected(renameEntry(bb, { path: path.join(root, ".config"), newName: "config-old" }));
+    expect(await exists(path.join(root, ".config", "gh", "hosts.yml"))).toBe(true);
+  });
+
+  it("still deletes an ordinary folder beside protected ones", async () => {
+    await mkdir(path.join(root, "Library", "Caches", "x"), { recursive: true });
+    const result = await deleteEntries(bb, { paths: [path.join(root, "Library", "Caches")], recursive: true });
+    expect(result.failed).toEqual([]);
+    expect(await exists(path.join(root, "Library", "Caches"))).toBe(false);
+  });
+
   it("refuses an overwrite of a protected file", async () => {
     await mkdir(path.join(root, "incoming"));
     await writeFile(path.join(root, "incoming", ".zshrc"), "rm -rf ~");

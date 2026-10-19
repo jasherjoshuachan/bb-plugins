@@ -139,8 +139,8 @@ export async function renameEntry(
   validateName(input.newName);
   const parentDir = path.dirname(source.path);
   const target = assertInside(path.join(parentDir, input.newName));
-  await assertNotProtected(source.path, "rename");
-  await assertNotProtected(target, "rename onto");
+  await assertNotProtected(source.path, "rename", { subtree: true });
+  await assertNotProtected(target, "rename onto", { subtree: true });
 
   if (target === source.path) return { entry: await buildEntry(source.path) };
   // fs.rename silently replaces an existing destination — refuse instead.
@@ -170,7 +170,7 @@ export async function deleteEntries(
   for (const requested of input.paths) {
     try {
       const source = await resolveLink(requested);
-      await assertNotProtected(source.path, "delete");
+      await assertNotProtected(source.path, "delete", { subtree: true });
       if (getSafetyPolicy().permanentDelete) {
         await removePermanently(source.path, source.lstat.isDirectory(), input.recursive);
       } else {
@@ -234,10 +234,11 @@ async function transferEntries(
       const source = await resolveLink(requested);
       if (source.path === getRoot()) throw fmError("path_escape", source.path);
       assertNotInsideSelf(source.path, destDirReal);
-      if (mode === "move") await assertNotProtected(source.path, "move");
+      if (mode === "move") await assertNotProtected(source.path, "move", { subtree: true });
       await assertNotProtected(
         path.join(destDirReal, path.basename(source.path)),
         mode === "move" ? "move into" : "copy into",
+        { subtree: true },
       );
 
       const target = await applyConflictPolicy(
